@@ -50,4 +50,13 @@ Vite uses `base: './'`, supporting a project URL such as `https://USERNAME.githu
 - Publishable/anon keys are designed for frontend use; RLS and the authorization allowlist protect the data.
 - Do not expose service-role or secret keys.
 - Stock changes use a database function that validates quantities and updates inventory + movement history in one transaction.
-- Seed inserts do not overwrite quantities when the SQL script is rerun...
+- Seed inserts do not overwrite quantities when the SQL script is rerun.
+
+## Password recovery (GitHub Pages)
+1. In Supabase Dashboard → Authentication → URL Configuration, set Site URL to `https://ketan-glitch.github.io/pipe-stock-manager/`.
+2. Add `https://ketan-glitch.github.io/pipe-stock-manager/` to the allowed Redirect URLs. If you also use local development, add `http://localhost:5173/` as a separate redirect URL.
+3. Deploy the updated app. On the sign-in screen choose **Forgot password?**, enter your account email, and request a link.
+4. Open the latest email on the same browser. It should return to the app with `?reset=1`, where you can enter and confirm a new password.
+5. If the email still redirects to `localhost:3000`, check whether an old recovery email was opened or another older app build is sending the request. Request a fresh email from the updated app.
+
+The recovery token is sensitive. Do not share recovery URLs, passwords, access tokens, or secret keys.
