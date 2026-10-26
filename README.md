@@ -50,4 +50,4 @@ Vite uses `base: './'`, supporting a project URL such as `https://USERNAME.githu
 - Publishable/anon keys are designed for frontend use; RLS and the authorization allowlist protect the data.
 - Do not expose service-role or secret keys.
 - Stock changes use a database function that validates quantities and updates inventory + movement history in one transaction.
-- Seed inserts do not overwrite quantities when the SQL script is rerun..
+- Seed inserts do not overwrite quantities when the SQL script is rerun...
