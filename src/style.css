@@ -1541,3 +1541,19 @@ footer {
         font-size: 9px
     }
 }
+
+.item-search {
+    position: relative;
+}
+
+.enter-hint {
+    font-size: 9px;
+    color: #a0a8b4;
+    white-space: nowrap;
+}
+
+@media (max-width: 650px) {
+    .enter-hint {
+        display: none;
+    }
+}

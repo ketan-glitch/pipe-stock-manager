@@ -1,77 +1,1815 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Activity, ArrowDownToLine, ArrowUpFromLine, Boxes, Check, CircleAlert, Clock3, LogOut, RefreshCw, Search, ShieldCheck, X, ShoppingCart, Plus, Trash2, Ban, Wallet, ChevronDown } from 'lucide-react'
-import { configReady, supabase } from './supabase'
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import {
+    Activity,
+    ArrowDownToLine,
+    ArrowUpFromLine,
+    Boxes,
+    Check,
+    CircleAlert,
+    Clock3,
+    LogOut,
+    RefreshCw,
+    Search,
+    ShieldCheck,
+    X,
+    ShoppingCart,
+    Plus,
+    Trash2,
+    Ban,
+    Wallet,
+    ChevronDown,
+} from "lucide-react";
+import { configReady, supabase } from "./supabase";
 
-const fmt = n => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(Number(n || 0))
-const money = n => `₹${fmt(n)}`
-const dateFmt = v => new Date(v).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-const paymentLabel = s => ({ paid: 'Paid', partial: 'Partial', unpaid: 'Unpaid', cancelled: 'Cancelled' }[s] || s)
+const fmt = (n) =>
+    new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(
+        Number(n || 0),
+    );
+const money = (n) => `₹${fmt(n)}`;
+const dateFmt = (v) =>
+    new Date(v).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+const paymentLabel = (s) =>
+    ({
+        paid: "Paid",
+        partial: "Partial",
+        unpaid: "Unpaid",
+        cancelled: "Cancelled",
+    })[s] || s;
 
 export default function App() {
-    const initialReset = new URLSearchParams(window.location.search).get('reset') === '1' || new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery'
-    const [session, setSession] = useState(null), [authLoading, setAuthLoading] = useState(true), [email, setEmail] = useState(''), [password, setPassword] = useState(''), [newPassword, setNewPassword] = useState(''), [confirmPassword, setConfirmPassword] = useState(''), [authMode, setAuthMode] = useState(initialReset ? 'reset' : 'signin'), [authMessage, setAuthMessage] = useState(''), [authBusy, setAuthBusy] = useState(false)
-    const [inventory, setInventory] = useState([]), [movements, setMovements] = useState([]), [sales, setSales] = useState([]), [loading, setLoading] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [query, setQuery] = useState(''), [tab, setTab] = useState('inventory'), [threshold, setThreshold] = useState(100), [item, setItem] = useState(null), [type, setType] = useState('in'), [qty, setQty] = useState('1'), [reason, setReason] = useState(''), [saving, setSaving] = useState(false)
-    const [saleView, setSaleView] = useState('list'), [customerName, setCustomerName] = useState(''), [customerPhone, setCustomerPhone] = useState(''), [saleSearch, setSaleSearch] = useState(''), [selected, setSelected] = useState([]), [commonRate, setCommonRate] = useState(''), [amountReceived, setAmountReceived] = useState('0'), [salesFilter, setSalesFilter] = useState('all'), [paymentSale, setPaymentSale] = useState(null), [paymentAmount, setPaymentAmount] = useState(''), [expandedSale, setExpandedSale] = useState(null)
+    const saleSearchRef = useRef(null);
+    const initialReset =
+        new URLSearchParams(window.location.search).get("reset") === "1" ||
+        new URLSearchParams(window.location.hash.slice(1)).get("type") ===
+        "recovery";
+    const [session, setSession] = useState(null),
+        [authLoading, setAuthLoading] = useState(true),
+        [email, setEmail] = useState(""),
+        [password, setPassword] = useState(""),
+        [newPassword, setNewPassword] = useState(""),
+        [confirmPassword, setConfirmPassword] = useState(""),
+        [authMode, setAuthMode] = useState(initialReset ? "reset" : "signin"),
+        [authMessage, setAuthMessage] = useState(""),
+        [authBusy, setAuthBusy] = useState(false);
+    const [inventory, setInventory] = useState([]),
+        [movements, setMovements] = useState([]),
+        [sales, setSales] = useState([]),
+        [loading, setLoading] = useState(false),
+        [error, setError] = useState(""),
+        [notice, setNotice] = useState(""),
+        [query, setQuery] = useState(""),
+        [tab, setTab] = useState("inventory"),
+        [threshold, setThreshold] = useState(100),
+        [item, setItem] = useState(null),
+        [type, setType] = useState("in"),
+        [qty, setQty] = useState("1"),
+        [reason, setReason] = useState(""),
+        [saving, setSaving] = useState(false);
+    const [saleView, setSaleView] = useState("list"),
+        [customerName, setCustomerName] = useState(""),
+        [customerPhone, setCustomerPhone] = useState(""),
+        [saleSearch, setSaleSearch] = useState(""),
+        [selected, setSelected] = useState([]),
+        [commonRate, setCommonRate] = useState(""),
+        [amountReceived, setAmountReceived] = useState("0"),
+        [salesFilter, setSalesFilter] = useState("all"),
+        [paymentSale, setPaymentSale] = useState(null),
+        [paymentAmount, setPaymentAmount] = useState(""),
+        [expandedSale, setExpandedSale] = useState(null);
 
-    useEffect(() => { if (!configReady) { setAuthLoading(false); return } supabase.auth.getSession().then(({ data, error }) => { if (error) setAuthMessage(error.message); setSession(data.session); setAuthLoading(false) }); const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => { setSession(s); setAuthLoading(false); if (event === 'PASSWORD_RECOVERY') { setAuthMode('reset'); setAuthMessage('Choose a new password for your account.') } }); return () => subscription.unsubscribe() }, [])
+    useEffect(() => {
+        if (!configReady) {
+            setAuthLoading(false);
+            return;
+        }
+        supabase.auth.getSession().then(({ data, error }) => {
+            if (error) setAuthMessage(error.message);
+            setSession(data.session);
+            setAuthLoading(false);
+        });
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((event, s) => {
+            setSession(s);
+            setAuthLoading(false);
+            if (event === "PASSWORD_RECOVERY") {
+                setAuthMode("reset");
+                setAuthMessage("Choose a new password for your account.");
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, []);
     const loadData = useCallback(async () => {
-        if (!session) return; setLoading(true); setError(''); const [a, b, c] = await Promise.all([
-            supabase.from('inventory').select('id,colour_code,colour_name,quantity,updated_at').order('colour_code'),
-            supabase.from('stock_movements').select('id,colour_code,colour_name,movement_type,quantity,reason,created_at').order('created_at', { ascending: false }).limit(100),
-            supabase.from('sales').select('id,sale_number,customer_name,customer_phone,subtotal,amount_received,payment_status,status,created_at,cancelled_at,sale_items(id,inventory_id,colour_code,colour_name,quantity,rate,line_total)').order('created_at', { ascending: false }).limit(200)
-        ]); if (a.error) setError(a.error.message); else setInventory(a.data || []); if (b.error) setError(old => old || `History error: ${b.error.message}`); else setMovements(b.data || []); if (c.error) setError(old => old || `Sales error: ${c.error.message}`); else setSales(c.data || []); setLoading(false)
-    }, [session])
-    useEffect(() => { loadData() }, [loadData])
-    const total = useMemo(() => inventory.reduce((s, x) => s + Number(x.quantity), 0), [inventory]), low = useMemo(() => inventory.filter(x => Number(x.quantity) <= threshold), [inventory, threshold]), filtered = useMemo(() => { const q = query.trim().toLowerCase(); return inventory.filter(x => !q || x.colour_code.toLowerCase().includes(q) || x.colour_name.toLowerCase().includes(q)) }, [inventory, query])
-    const saleItemsTotal = selected.reduce((s, x) => s + Number(x.quantity) * Number(x.rate), 0), salePieces = selected.reduce((s, x) => s + Number(x.quantity), 0)
-    const activeSales = sales.filter(s => s.status === 'completed'), salesTotal = activeSales.reduce((s, x) => s + Number(x.subtotal), 0), receivedTotal = activeSales.reduce((s, x) => s + Number(x.amount_received), 0), outstandingTotal = activeSales.reduce((s, x) => s + Number(x.subtotal) - Number(x.amount_received), 0), piecesSold = activeSales.reduce((s, x) => s + (x.sale_items || []).reduce((a, i) => a + Number(i.quantity), 0), 0)
-    const visibleSales = sales.filter(s => salesFilter === 'all' || (salesFilter === 'completed' && s.status === 'completed') || (salesFilter === 'cancelled' && s.status === 'cancelled') || (salesFilter === 'unpaid' && s.status === 'completed' && s.payment_status !== 'paid')).filter(s => { const q = saleSearch.toLowerCase().trim(); return !q || String(s.sale_number).includes(q) || s.customer_name.toLowerCase().includes(q) || s.customer_phone.includes(q) })
+        if (!session) return;
+        setLoading(true);
+        setError("");
+        const [a, b, c] = await Promise.all([
+            supabase
+                .from("inventory")
+                .select("id,colour_code,colour_name,quantity,updated_at")
+                .order("colour_code"),
+            supabase
+                .from("stock_movements")
+                .select(
+                    "id,colour_code,colour_name,movement_type,quantity,reason,created_at",
+                )
+                .order("created_at", { ascending: false })
+                .limit(100),
+            supabase
+                .from("sales")
+                .select(
+                    "id,sale_number,customer_name,customer_phone,subtotal,amount_received,payment_status,status,created_at,cancelled_at,sale_items(id,inventory_id,colour_code,colour_name,quantity,rate,line_total)",
+                )
+                .order("created_at", { ascending: false })
+                .limit(200),
+        ]);
+        if (a.error) setError(a.error.message);
+        else setInventory(a.data || []);
+        if (b.error)
+            setError((old) => old || `History error: ${b.error.message}`);
+        else setMovements(b.data || []);
+        if (c.error)
+            setError((old) => old || `Sales error: ${c.error.message}`);
+        else setSales(c.data || []);
+        setLoading(false);
+    }, [session]);
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+    const total = useMemo(
+        () => inventory.reduce((s, x) => s + Number(x.quantity), 0),
+        [inventory],
+    ),
+        low = useMemo(
+            () => inventory.filter((x) => Number(x.quantity) <= threshold),
+            [inventory, threshold],
+        ),
+        filtered = useMemo(() => {
+            const q = query.trim().toLowerCase();
+            return inventory.filter(
+                (x) =>
+                    !q ||
+                    x.colour_code.toLowerCase().includes(q) ||
+                    x.colour_name.toLowerCase().includes(q),
+            );
+        }, [inventory, query]);
+    const saleItemsTotal = selected.reduce(
+        (s, x) => s + Number(x.quantity) * Number(x.rate),
+        0,
+    ),
+        salePieces = selected.reduce((s, x) => s + Number(x.quantity), 0);
+    const activeSales = sales.filter((s) => s.status === "completed"),
+        salesTotal = activeSales.reduce((s, x) => s + Number(x.subtotal), 0),
+        receivedTotal = activeSales.reduce(
+            (s, x) => s + Number(x.amount_received),
+            0,
+        ),
+        outstandingTotal = activeSales.reduce(
+            (s, x) => s + Number(x.subtotal) - Number(x.amount_received),
+            0,
+        ),
+        piecesSold = activeSales.reduce(
+            (s, x) =>
+                s +
+                (x.sale_items || []).reduce(
+                    (a, i) => a + Number(i.quantity),
+                    0,
+                ),
+            0,
+        );
+    const visibleSales = sales
+        .filter(
+            (s) =>
+                salesFilter === "all" ||
+                (salesFilter === "completed" && s.status === "completed") ||
+                (salesFilter === "cancelled" && s.status === "cancelled") ||
+                (salesFilter === "unpaid" &&
+                    s.status === "completed" &&
+                    s.payment_status !== "paid"),
+        )
+        .filter((s) => {
+            const q = saleSearch.toLowerCase().trim();
+            return (
+                !q ||
+                String(s.sale_number).includes(q) ||
+                s.customer_name.toLowerCase().includes(q) ||
+                s.customer_phone.includes(q)
+            );
+        });
 
-    async function auth(e) { e.preventDefault(); setAuthMessage(''); setAuthBusy(true); try { let result; if (authMode === 'signin') { result = await supabase.auth.signInWithPassword({ email: email.trim(), password }); if (!result.error) setAuthMessage('Signed in. If access is denied, authorize your user UUID in Supabase.') } else if (authMode === 'signup') { result = await supabase.auth.signUp({ email: email.trim(), password }); if (!result.error) setAuthMessage(result.data.session ? 'Account created.' : 'Account created. Confirm your email if required, then authorize this account in Supabase before using inventory.') } else if (authMode === 'forgot') { const redirectTo = `${window.location.origin}${window.location.pathname}?reset=1`; result = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo }); if (!result.error) setAuthMessage('If an account exists for this email, a password recovery link has been sent. Check your inbox and spam folder.') } else if (authMode === 'reset') { if (newPassword.length < 6) { setAuthMessage('Use a password with at least 6 characters.'); return } if (newPassword !== confirmPassword) { setAuthMessage('The passwords do not match.'); return } result = await supabase.auth.updateUser({ password: newPassword }); if (!result.error) { setPassword(''); setNewPassword(''); setConfirmPassword(''); setAuthMessage('Password updated. You can now sign in with your new password.'); await supabase.auth.signOut(); setSession(null); window.history.replaceState({}, document.title, window.location.pathname); setAuthMode('signin') } } if (result?.error) setAuthMessage(result.error.message) } catch (err) { setAuthMessage(err.message || 'Something went wrong. Please try again.') } finally { setAuthBusy(false) } }
-    async function signOut() { await supabase.auth.signOut(); setInventory([]); setMovements([]); setSales([]) }
-    function open(item, t) { setItem(item); setType(t); setQty('1'); setReason(''); setError(''); setNotice('') }
-    async function save(e) { e.preventDefault(); const n = Number(qty); if (!Number.isInteger(n) || n <= 0) { setError('Enter a whole-number quantity greater than zero.'); return } setSaving(true); setError(''); const { error } = await supabase.rpc('record_stock_movement', { p_inventory_id: item.id, p_movement_type: type, p_quantity: n, p_reason: reason.trim() || null }); setSaving(false); if (error) { setError(error.message); return } setNotice(`${type === 'in' ? 'Added' : 'Removed'} ${fmt(n)} pieces for ${item.colour_code}.`); setItem(null); await loadData() }
-    function resetSale() { setCustomerName(''); setCustomerPhone(''); setSelected([]); setCommonRate(''); setAmountReceived('0'); setSaleSearch(''); setSaleView('list') }
-    function addSaleItem(it) { if (selected.some(x => x.inventory_id === it.id)) return; setSelected(old => [...old, { inventory_id: it.id, colour_code: it.colour_code, colour_name: it.colour_name, available: Number(it.quantity), quantity: 1, rate: commonRate !== '' ? Number(commonRate) : 0 }]); setSaleSearch('') }
-    function updateLine(id, key, value) { setSelected(old => old.map(x => x.inventory_id === id ? { ...x, [key]: value } : x)) }
-    function applyCommonRate(v) { setCommonRate(v); if (v !== '' && Number(v) > 0) setSelected(old => old.map(x => ({ ...x, rate: Number(v) }))) }
-    async function submitSale(e) { e.preventDefault(); if (!customerName.trim() || !customerPhone.trim()) { setError('Customer name and mobile number are required.'); return } if (!selected.length) { setError('Select at least one inventory item.'); return } if (selected.some(x => !Number.isInteger(Number(x.quantity)) || Number(x.quantity) <= 0 || Number(x.quantity) > x.available || !Number.isFinite(Number(x.rate)) || Number(x.rate) <= 0)) { setError('Check each item: quantity must be within available stock and rate must be greater than zero.'); return } if (Number(amountReceived) < 0 || Number(amountReceived) > saleItemsTotal) { setError('Amount received cannot exceed the sale total.'); return } setSaving(true); setError(''); const { error } = await supabase.rpc('create_sale', { p_customer_name: customerName.trim(), p_customer_phone: customerPhone.trim(), p_items: selected.map(x => ({ inventory_id: x.inventory_id, quantity: Number(x.quantity), rate: Number(x.rate) })), p_amount_received: Number(amountReceived) }); setSaving(false); if (error) { setError(error.message); return } setNotice('Sale completed and inventory updated successfully.'); resetSale(); setTab('sales'); await loadData() }
-    async function cancelSale(s) { if (!window.confirm(`Cancel sale #${s.sale_number}? All sold quantities will be restored to inventory. This cannot be undone.`)) return; setSaving(true); const { error } = await supabase.rpc('cancel_sale', { p_sale_id: s.id }); setSaving(false); if (error) { setError(error.message); return } setNotice(`Sale #${s.sale_number} cancelled. Stock has been restored.`); await loadData() }
-    async function addPayment(e) { e.preventDefault(); if (!paymentSale) return; const n = Number(paymentAmount); if (!Number.isFinite(n) || n <= 0) { setError('Enter a payment amount greater than zero.'); return } setSaving(true); const { error } = await supabase.rpc('add_sale_payment', { p_sale_id: paymentSale.id, p_amount: n }); setSaving(false); if (error) { setError(error.message); return } setPaymentSale(null); setPaymentAmount(''); setNotice('Payment recorded.'); await loadData() }
+    async function auth(e) {
+        e.preventDefault();
+        setAuthMessage("");
+        setAuthBusy(true);
+        try {
+            let result;
+            if (authMode === "signin") {
+                result = await supabase.auth.signInWithPassword({
+                    email: email.trim(),
+                    password,
+                });
+                if (!result.error)
+                    setAuthMessage(
+                        "Signed in. If access is denied, authorize your user UUID in Supabase.",
+                    );
+            } else if (authMode === "signup") {
+                result = await supabase.auth.signUp({
+                    email: email.trim(),
+                    password,
+                });
+                if (!result.error)
+                    setAuthMessage(
+                        result.data.session
+                            ? "Account created."
+                            : "Account created. Confirm your email if required, then authorize this account in Supabase before using inventory.",
+                    );
+            } else if (authMode === "forgot") {
+                const redirectTo = `${window.location.origin}${window.location.pathname}?reset=1`;
+                result = await supabase.auth.resetPasswordForEmail(
+                    email.trim(),
+                    { redirectTo },
+                );
+                if (!result.error)
+                    setAuthMessage(
+                        "If an account exists for this email, a password recovery link has been sent. Check your inbox and spam folder.",
+                    );
+            } else if (authMode === "reset") {
+                if (newPassword.length < 6) {
+                    setAuthMessage(
+                        "Use a password with at least 6 characters.",
+                    );
+                    return;
+                }
+                if (newPassword !== confirmPassword) {
+                    setAuthMessage("The passwords do not match.");
+                    return;
+                }
+                result = await supabase.auth.updateUser({
+                    password: newPassword,
+                });
+                if (!result.error) {
+                    setPassword("");
+                    setNewPassword("");
+                    setConfirmPassword("");
+                    setAuthMessage(
+                        "Password updated. You can now sign in with your new password.",
+                    );
+                    await supabase.auth.signOut();
+                    setSession(null);
+                    window.history.replaceState(
+                        {},
+                        document.title,
+                        window.location.pathname,
+                    );
+                    setAuthMode("signin");
+                }
+            }
+            if (result?.error) setAuthMessage(result.error.message);
+        } catch (err) {
+            setAuthMessage(
+                err.message || "Something went wrong. Please try again.",
+            );
+        } finally {
+            setAuthBusy(false);
+        }
+    }
+    async function signOut() {
+        await supabase.auth.signOut();
+        setInventory([]);
+        setMovements([]);
+        setSales([]);
+    }
+    function open(item, t) {
+        setItem(item);
+        setType(t);
+        setQty("1");
+        setReason("");
+        setError("");
+        setNotice("");
+    }
+    async function save(e) {
+        e.preventDefault();
+        const n = Number(qty);
+        if (!Number.isInteger(n) || n <= 0) {
+            setError("Enter a whole-number quantity greater than zero.");
+            return;
+        }
+        setSaving(true);
+        setError("");
+        const { error } = await supabase.rpc("record_stock_movement", {
+            p_inventory_id: item.id,
+            p_movement_type: type,
+            p_quantity: n,
+            p_reason: reason.trim() || null,
+        });
+        setSaving(false);
+        if (error) {
+            setError(error.message);
+            return;
+        }
+        setNotice(
+            `${type === "in" ? "Added" : "Removed"} ${fmt(n)} pieces for ${item.colour_code}.`,
+        );
+        setItem(null);
+        await loadData();
+    }
+    function resetSale() {
+        setCustomerName("");
+        setCustomerPhone("");
+        setSelected([]);
+        setCommonRate("");
+        setAmountReceived("0");
+        setSaleSearch("");
+        setSaleView("list");
+    }
+    function matchingSaleItems() {
+        const q = saleSearch.trim().toLowerCase();
 
-    if (!configReady) return <div className="center"><section className="auth"><div className="logo"><Boxes /></div><p className="eyebrow">SETUP REQUIRED</p><h1>Connect Supabase</h1><p className="muted">Create a local <code>.env</code> file from <code>.env.example</code> and add your project URL and publishable key.</p><pre>VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co<br />VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY</pre><p className="tiny"><ShieldCheck size={14} /> Never put a service-role/secret key in frontend code.</p></section></div>
-    if (authLoading) return <div className="center">Loading…</div>
-    if (!session || authMode === 'forgot' || authMode === 'reset') return <div className="center"><section className="auth"><div className="logo"><Boxes /></div><p className="eyebrow">INVENTORY</p><h1>{authMode === 'forgot' ? 'Reset password' : authMode === 'reset' ? 'Choose a new password' : 'Pipe Stock'}</h1><p className="muted">{authMode === 'forgot' ? 'We will email you a secure password reset link.' : authMode === 'reset' ? 'Enter and confirm your new password below.' : 'A simple place to manage your colour stock.'}</p><form onSubmit={auth}>{authMode !== 'reset' && <label>Email address<input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" /></label>}{authMode === 'signin' || authMode === 'signup' ? <label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength="6" autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'} /></label> : null}{authMode === 'reset' && <><label>New password<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength="6" autoComplete="new-password" /></label><label>Confirm new password<input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength="6" autoComplete="new-password" /></label></>}<button className="primary full" disabled={authBusy}>{authBusy ? 'Please wait…' : authMode === 'signin' ? 'Sign in' : authMode === 'signup' ? 'Create account' : authMode === 'forgot' ? 'Send reset link' : 'Update password'}</button></form>{authMessage && <p className="message">{authMessage}</p>}{authMode === 'signin' && <><button className="link" onClick={() => { setAuthMode('forgot'); setAuthMessage('') }}>Forgot password?</button><button className="link" onClick={() => { setAuthMode('signup'); setAuthMessage('') }}>Need an account? Create one</button></>}{authMode !== 'signin' && <button className="link" onClick={() => { setAuthMode('signin'); setAuthMessage(''); setNewPassword(''); setConfirmPassword('') }}>Back to sign in</button>}{authMode === 'signin' && <p className="tiny"><ShieldCheck size={14} /> Account must be authorized by the inventory owner.</p>}</section></div>
+        if (!q) return [];
 
-    return <div className="app"><header className="topbar"><div className="brand"><div className="logo small"><Boxes /></div><div><b>Pipe Stock</b><small>Colour inventory & sales</small></div></div><div className="head-actions"><button className="icon" onClick={loadData} aria-label="Refresh"><RefreshCw size={17} /></button><button className="icon" onClick={signOut} aria-label="Sign out"><LogOut size={17} /></button></div></header>
-        <main className="main"><div className="heading"><div><p className="eyebrow">INVENTORY MANAGEMENT</p><h1>{tab === 'sales' ? 'Sales' : tab === 'history' ? 'Stock history' : 'Stock inventory'}</h1><p className="muted">Track pipe-cleaner colours, sales and customer payments.</p></div><span className="live"><i /> Live database</span></div>
-            {error && <div className="alert err"><CircleAlert size={17} /><span>{error}</span><button onClick={() => setError('')}><X size={16} /></button></div>}{notice && <div className="alert ok"><Check size={17} /><span>{notice}</span><button onClick={() => setNotice('')}><X size={16} /></button></div>}
-            <section className="stats"><article><span><Boxes size={15} /> Total pieces</span><b>{fmt(total)}</b><small>Across {inventory.length} colours</small></article><article><span><CircleAlert size={15} /> Low stock</span><b>{fmt(low.length)}</b><small>At or below {fmt(threshold)} pieces</small></article><article><span><ShoppingCart size={15} /> Sales total</span><b>{money(salesTotal)}</b><small>{fmt(activeSales.length)} completed sales</small></article></section>
-            <section className="card"><div className="card-head"><div className="tabs"><button className={tab === 'inventory' ? 'active' : ''} onClick={() => setTab('inventory')}><Boxes size={15} /> Inventory</button><button className={tab === 'sales' ? 'active' : ''} onClick={() => { setTab('sales'); setSaleView('list') }}><ShoppingCart size={15} /> Sales</button><button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}><Clock3 size={15} /> History</button></div><button className="refresh" onClick={loadData} disabled={loading}>{loading ? 'Loading…' : <><RefreshCw size={14} /> Refresh</>}</button></div>
-                {tab === 'inventory' && <><div className="tools"><div className="search"><Search size={16} /><input placeholder="Search colour or code…" value={query} onChange={e => setQuery(e.target.value)} /></div><label className="threshold">Low stock at <input type="number" min="0" value={threshold} onChange={e => setThreshold(Math.max(0, Number(e.target.value)))} /> pcs</label></div><div className="table-wrap"><table><thead><tr><th>Colour</th><th>Code</th><th>Available</th><th className="right">Update stock</th></tr></thead><tbody>{filtered.map(x => { const isLow = Number(x.quantity) <= threshold; return <tr key={x.id}><td><div className="colour">{x.colour_name}{isLow && <span className="pill">Low</span>}</div></td><td><code>{x.colour_code}</code></td><td><b className={isLow ? 'low' : ''}>{fmt(x.quantity)}</b><small className="pcs">pcs</small></td><td><div className="actions"><button className="in" onClick={() => open(x, 'in')}><ArrowDownToLine size={15} /> In</button><button className="out" onClick={() => open(x, 'out')}><ArrowUpFromLine size={15} /> Out</button></div></td></tr> })}{!filtered.length && <tr><td colSpan="4" className="empty">No colours match your search.</td></tr>}</tbody></table></div><div className="table-foot"><span>Showing {filtered.length} of {inventory.length} colours</span><span>Quantities in pieces</span></div></>}
-                {tab === 'history' && <><div className="history-intro"><Activity size={16} /> Latest 100 stock movements</div><div className="history">{movements.map(m => <article key={m.id}><div className={'move-icon ' + m.movement_type}>{m.movement_type === 'in' ? '+' : '−'}</div><div className="move-info"><b>{m.colour_name}</b><span>{m.colour_code}{m.reason ? ' · ' + m.reason : ''}</span><small>{dateFmt(m.created_at)}</small></div><strong className={m.movement_type === 'in' ? 'positive' : 'negative'}>{m.movement_type === 'in' ? '+' : '−'}{fmt(m.quantity)}</strong></article>)}{!movements.length && <div className="empty">No stock movements recorded yet.</div>}</div></>}
-                {tab === 'sales' && <div className="sales-area">
-                    {saleView === 'list' ? <>
-                        <div className="sales-summary"><article><span>Received</span><b>{money(receivedTotal)}</b></article><article><span>Outstanding</span><b>{money(outstandingTotal)}</b></article><article><span>Pieces sold</span><b>{fmt(piecesSold)}</b></article></div>
-                        <div className="sales-toolbar"><div><h2>Sales history</h2><p className="muted">Review transactions and collect pending balances.</p></div><button className="primary" onClick={() => { setSaleView('new'); setError(''); setNotice('') }}><Plus size={15} /> New sale</button></div>
-                        <div className="sales-filters"><div className="search"><Search size={15} /><input placeholder="Search customer or sale #…" value={saleSearch} onChange={e => setSaleSearch(e.target.value)} /></div><select value={salesFilter} onChange={e => setSalesFilter(e.target.value)}><option value="all">All sales</option><option value="completed">Completed</option><option value="unpaid">Balance due</option><option value="cancelled">Cancelled</option></select></div>
-                        <div className="sale-list">{visibleSales.map(s => <article className="sale-card" key={s.id}><div className="sale-main"><div><b>Sale #{s.sale_number}</b><span>{s.customer_name} · {s.customer_phone}</span><small>{dateFmt(s.created_at)} · {(s.sale_items || []).length} item types</small></div><div className="sale-amount"><b>{money(s.subtotal)}</b><span className={`status ${s.status === 'cancelled' ? 'cancelled' : s.payment_status}`}>{s.status === 'cancelled' ? 'Cancelled' : paymentLabel(s.payment_status)}</span></div></div><div className="sale-bottom"><span>{fmt((s.sale_items || []).reduce((a, i) => a + Number(i.quantity), 0))} pcs · Received {money(s.amount_received)} · Due {money(Math.max(0, Number(s.subtotal) - Number(s.amount_received)))}</span><div className="sale-actions"><button className="text-action" onClick={() => setExpandedSale(expandedSale === s.id ? null : s.id)}>{expandedSale === s.id ? 'Hide items' : 'View items'} <ChevronDown size={13} /></button>{s.status === 'completed' && Number(s.amount_received) < Number(s.subtotal) && <button className="text-action pay" onClick={() => { setPaymentSale(s); setPaymentAmount('') }}><Wallet size={13} /> Add payment</button>}{s.status === 'completed' && <button className="text-action danger" onClick={() => cancelSale(s)} disabled={saving}><Ban size={13} /> Cancel</button>}</div></div>
-                            {expandedSale === s.id && <div className="sale-lines">{(s.sale_items || []).map(i => <div key={i.id}><span>{i.colour_name} <small>{i.colour_code}</small></span><span>{fmt(i.quantity)} × {money(i.rate)} = <b>{money(i.line_total)}</b></span></div>)}{s.status === 'cancelled' && <p className="muted">Stock restored on {dateFmt(s.cancelled_at || s.created_at)}. Any money already received must be settled/refunded separately.</p>}</div>}</article>)}{!visibleSales.length && <div className="empty">No sales match this filter.</div>}</div>
-                    </> : <>
-                        <div className="sales-toolbar"><div><h2>Create new sale</h2><p className="muted">Add multiple colours to one customer transaction.</p></div><button className="secondary" onClick={resetSale}>Back to sales</button></div>
-                        <form className="sale-form" onSubmit={submitSale}>
-                            <section className="form-section"><h3>Customer details</h3><div className="form-grid"><label>Customer name<input required value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Enter customer name" /></label><label>Mobile number<input required type="tel" inputMode="tel" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="10-digit mobile number" /></label></div></section>
-                            <section className="form-section"><div className="section-title"><h3>Items</h3><span>{selected.length} selected</span></div><div className="search item-search"><Search size={15} /><input placeholder="Search colour name or code to add…" value={saleSearch} onChange={e => setSaleSearch(e.target.value)} /></div>{saleSearch.trim() && <div className="item-results">{inventory.filter(x => x.colour_code.toLowerCase().includes(saleSearch.toLowerCase()) || x.colour_name.toLowerCase().includes(saleSearch.toLowerCase())).filter(x => !selected.some(s => s.inventory_id === x.id)).slice(0, 8).map(x => <button type="button" key={x.id} onClick={() => addSaleItem(x)} disabled={Number(x.quantity) <= 0}><span><b>{x.colour_name}</b><small>{x.colour_code}</small></span><span>{fmt(x.quantity)} pcs available <Plus size={14} /></span></button>)}{!inventory.some(x => (x.colour_code.toLowerCase().includes(saleSearch.toLowerCase()) || x.colour_name.toLowerCase().includes(saleSearch.toLowerCase())) && !selected.some(s => s.inventory_id === x.id)) && <p className="empty">No available matching colours.</p>}</div>}
-                                {selected.length > 0 && <><div className="common-rate"><label>Apply common rate to all items (₹ / piece)<input type="number" min="0.01" step="0.01" value={commonRate} onChange={e => applyCommonRate(e.target.value)} placeholder="Optional common rate" /></label><small>Individual rates can still be adjusted below.</small></div><div className="sale-item-list">{selected.map(x => <div className="sale-item" key={x.inventory_id}><div className="item-name"><b>{x.colour_name}</b><small>{x.colour_code} · {fmt(x.available)} available</small></div><label>Qty<input type="number" min="1" max={x.available} step="1" value={x.quantity} onChange={e => updateLine(x.inventory_id, 'quantity', e.target.value)} /></label><label>Rate (₹)<input type="number" min="0.01" step="0.01" value={x.rate} onChange={e => updateLine(x.inventory_id, 'rate', e.target.value)} /></label><b className="line-total">{money(Number(x.quantity) * Number(x.rate))}</b><button type="button" className="remove-line" onClick={() => setSelected(old => old.filter(i => i.inventory_id !== x.inventory_id))} aria-label="Remove item"><Trash2 size={15} /></button></div>)}</div></>}
-                                {!selected.length && <p className="empty add-first">Search and select the colours being purchased.</p>}
-                            </section>
-                            <section className="form-section"><h3>Payment</h3><div className="payment-entry"><label>Amount received (₹)<input type="number" min="0" max={saleItemsTotal} step="0.01" value={amountReceived} onChange={e => setAmountReceived(e.target.value)} /></label><small>Enter 0 if the customer has not paid yet.</small></div><div className="totals"><div><span>Total pieces</span><b>{fmt(salePieces)}</b></div><div><span>Sale total</span><b>{money(saleItemsTotal)}</b></div><div><span>Received</span><b>{money(amountReceived)}</b></div><div className="due"><span>Balance due</span><b>{money(Math.max(0, saleItemsTotal - Number(amountReceived || 0)))}</b></div></div></section>
-                            <div className="form-actions"><button type="button" className="secondary" onClick={resetSale}>Discard</button><button type="submit" className="primary" disabled={saving || !selected.length}>{saving ? 'Saving sale…' : 'Complete sale'}</button></div>
+        return inventory
+            .filter(
+                (item) =>
+                    Number(item.quantity) > 0 &&
+                    (item.colour_code.toLowerCase().includes(q) ||
+                        item.colour_name.toLowerCase().includes(q)),
+            )
+            .slice(0, 8);
+    }
+    // function addSaleItem(it) { if (selected.some(x => x.inventory_id === it.id)) return; setSelected(old => [...old, { inventory_id: it.id, colour_code: it.colour_code, colour_name: it.colour_name, available: Number(it.quantity), quantity: 1, rate: commonRate !== '' ? Number(commonRate) : 0 }]); setSaleSearch('') }
+    function addSaleItem(item) {
+        setSelected((old) => {
+            const existing = old.find((x) => x.inventory_id === item.id);
+
+            // If already added, increase its quantity by one.
+            if (existing) {
+                if (Number(existing.quantity) >= Number(item.quantity)) {
+                    return old;
+                }
+
+                return old.map((x) =>
+                    x.inventory_id === item.id
+                        ? {
+                            ...x,
+                            quantity: Number(x.quantity) + 1,
+                            available: Number(item.quantity),
+                        }
+                        : x,
+                );
+            }
+
+            // Add a new item to the sale.
+            return [
+                ...old,
+                {
+                    inventory_id: item.id,
+                    colour_code: item.colour_code,
+                    colour_name: item.colour_name,
+                    available: Number(item.quantity),
+                    quantity: 1,
+                    rate: commonRate !== "" ? Number(commonRate) : 0,
+                },
+            ];
+        });
+
+        setSaleSearch("");
+
+        // Return focus to search after React updates the UI.
+        requestAnimationFrame(() => {
+            saleSearchRef.current?.focus();
+        });
+    }
+    function handleSaleSearchKeyDown(e) {
+        if (e.key !== "Enter") return;
+
+        e.preventDefault();
+
+        const firstResult = matchingSaleItems()[0];
+
+        if (firstResult) {
+            addSaleItem(firstResult);
+        }
+    }
+    function updateLine(id, key, value) {
+        setSelected((old) =>
+            old.map((x) =>
+                x.inventory_id === id ? { ...x, [key]: value } : x,
+            ),
+        );
+    }
+    function applyCommonRate(v) {
+        setCommonRate(v);
+        if (v !== "" && Number(v) > 0)
+            setSelected((old) => old.map((x) => ({ ...x, rate: Number(v) })));
+    }
+    async function submitSale(e) {
+        e.preventDefault();
+        if (!customerName.trim() || !customerPhone.trim()) {
+            setError("Customer name and mobile number are required.");
+            return;
+        }
+        if (!selected.length) {
+            setError("Select at least one inventory item.");
+            return;
+        }
+        if (
+            selected.some(
+                (x) =>
+                    !Number.isInteger(Number(x.quantity)) ||
+                    Number(x.quantity) <= 0 ||
+                    Number(x.quantity) > x.available ||
+                    !Number.isFinite(Number(x.rate)) ||
+                    Number(x.rate) <= 0,
+            )
+        ) {
+            setError(
+                "Check each item: quantity must be within available stock and rate must be greater than zero.",
+            );
+            return;
+        }
+        if (
+            Number(amountReceived) < 0 ||
+            Number(amountReceived) > saleItemsTotal
+        ) {
+            setError("Amount received cannot exceed the sale total.");
+            return;
+        }
+        setSaving(true);
+        setError("");
+        const { error } = await supabase.rpc("create_sale", {
+            p_customer_name: customerName.trim(),
+            p_customer_phone: customerPhone.trim(),
+            p_items: selected.map((x) => ({
+                inventory_id: x.inventory_id,
+                quantity: Number(x.quantity),
+                rate: Number(x.rate),
+            })),
+            p_amount_received: Number(amountReceived),
+        });
+        setSaving(false);
+        if (error) {
+            setError(error.message);
+            return;
+        }
+        setNotice("Sale completed and inventory updated successfully.");
+        resetSale();
+        setTab("sales");
+        await loadData();
+    }
+    async function cancelSale(s) {
+        if (
+            !window.confirm(
+                `Cancel sale #${s.sale_number}? All sold quantities will be restored to inventory. This cannot be undone.`,
+            )
+        )
+            return;
+        setSaving(true);
+        const { error } = await supabase.rpc("cancel_sale", {
+            p_sale_id: s.id,
+        });
+        setSaving(false);
+        if (error) {
+            setError(error.message);
+            return;
+        }
+        setNotice(`Sale #${s.sale_number} cancelled. Stock has been restored.`);
+        await loadData();
+    }
+    async function addPayment(e) {
+        e.preventDefault();
+        if (!paymentSale) return;
+        const n = Number(paymentAmount);
+        if (!Number.isFinite(n) || n <= 0) {
+            setError("Enter a payment amount greater than zero.");
+            return;
+        }
+        setSaving(true);
+        const { error } = await supabase.rpc("add_sale_payment", {
+            p_sale_id: paymentSale.id,
+            p_amount: n,
+        });
+        setSaving(false);
+        if (error) {
+            setError(error.message);
+            return;
+        }
+        setPaymentSale(null);
+        setPaymentAmount("");
+        setNotice("Payment recorded.");
+        await loadData();
+    }
+
+    if (!configReady)
+        return (
+            <div className="center">
+                <section className="auth">
+                    <div className="logo">
+                        <Boxes />
+                    </div>
+                    <p className="eyebrow">SETUP REQUIRED</p>
+                    <h1>Connect Supabase</h1>
+                    <p className="muted">
+                        Create a local <code>.env</code> file from{" "}
+                        <code>.env.example</code> and add your project URL and
+                        publishable key.
+                    </p>
+                    <pre>
+                        VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+                        <br />
+                        VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+                    </pre>
+                    <p className="tiny">
+                        <ShieldCheck size={14} /> Never put a
+                        service-role/secret key in frontend code.
+                    </p>
+                </section>
+            </div>
+        );
+    if (authLoading) return <div className="center">Loading…</div>;
+    if (!session || authMode === "forgot" || authMode === "reset")
+        return (
+            <div className="center">
+                <section className="auth">
+                    <div className="logo">
+                        <Boxes />
+                    </div>
+                    <p className="eyebrow">INVENTORY</p>
+                    <h1>
+                        {authMode === "forgot"
+                            ? "Reset password"
+                            : authMode === "reset"
+                                ? "Choose a new password"
+                                : "Pipe Stock"}
+                    </h1>
+                    <p className="muted">
+                        {authMode === "forgot"
+                            ? "We will email you a secure password reset link."
+                            : authMode === "reset"
+                                ? "Enter and confirm your new password below."
+                                : "A simple place to manage your colour stock."}
+                    </p>
+                    <form onSubmit={auth}>
+                        {authMode !== "reset" && (
+                            <label>
+                                Email address
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    autoComplete="email"
+                                />
+                            </label>
+                        )}
+                        {authMode === "signin" || authMode === "signup" ? (
+                            <label>
+                                Password
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) =>
+                                        setPassword(e.target.value)
+                                    }
+                                    required
+                                    minLength="6"
+                                    autoComplete={
+                                        authMode === "signin"
+                                            ? "current-password"
+                                            : "new-password"
+                                    }
+                                />
+                            </label>
+                        ) : null}
+                        {authMode === "reset" && (
+                            <>
+                                <label>
+                                    New password
+                                    <input
+                                        type="password"
+                                        value={newPassword}
+                                        onChange={(e) =>
+                                            setNewPassword(e.target.value)
+                                        }
+                                        required
+                                        minLength="6"
+                                        autoComplete="new-password"
+                                    />
+                                </label>
+                                <label>
+                                    Confirm new password
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) =>
+                                            setConfirmPassword(e.target.value)
+                                        }
+                                        required
+                                        minLength="6"
+                                        autoComplete="new-password"
+                                    />
+                                </label>
+                            </>
+                        )}
+                        <button className="primary full" disabled={authBusy}>
+                            {authBusy
+                                ? "Please wait…"
+                                : authMode === "signin"
+                                    ? "Sign in"
+                                    : authMode === "signup"
+                                        ? "Create account"
+                                        : authMode === "forgot"
+                                            ? "Send reset link"
+                                            : "Update password"}
+                        </button>
+                    </form>
+                    {authMessage && <p className="message">{authMessage}</p>}
+                    {authMode === "signin" && (
+                        <>
+                            <button
+                                className="link"
+                                onClick={() => {
+                                    setAuthMode("forgot");
+                                    setAuthMessage("");
+                                }}
+                            >
+                                Forgot password?
+                            </button>
+                            <button
+                                className="link"
+                                onClick={() => {
+                                    setAuthMode("signup");
+                                    setAuthMessage("");
+                                }}
+                            >
+                                Need an account? Create one
+                            </button>
+                        </>
+                    )}
+                    {authMode !== "signin" && (
+                        <button
+                            className="link"
+                            onClick={() => {
+                                setAuthMode("signin");
+                                setAuthMessage("");
+                                setNewPassword("");
+                                setConfirmPassword("");
+                            }}
+                        >
+                            Back to sign in
+                        </button>
+                    )}
+                    {authMode === "signin" && (
+                        <p className="tiny">
+                            <ShieldCheck size={14} /> Account must be authorized
+                            by the inventory owner.
+                        </p>
+                    )}
+                </section>
+            </div>
+        );
+
+    return (
+        <div className="app">
+            <header className="topbar">
+                <div className="brand">
+                    <div className="logo small">
+                        <Boxes />
+                    </div>
+                    <div>
+                        <b>Pipe Stock</b>
+                        <small>Colour inventory & sales</small>
+                    </div>
+                </div>
+                <div className="head-actions">
+                    <button
+                        className="icon"
+                        onClick={loadData}
+                        aria-label="Refresh"
+                    >
+                        <RefreshCw size={17} />
+                    </button>
+                    <button
+                        className="icon"
+                        onClick={signOut}
+                        aria-label="Sign out"
+                    >
+                        <LogOut size={17} />
+                    </button>
+                </div>
+            </header>
+            <main className="main">
+                <div className="heading">
+                    <div>
+                        <p className="eyebrow">INVENTORY MANAGEMENT</p>
+                        <h1>
+                            {tab === "sales"
+                                ? "Sales"
+                                : tab === "history"
+                                    ? "Stock history"
+                                    : "Stock inventory"}
+                        </h1>
+                        <p className="muted">
+                            Track pipe-cleaner colours, sales and customer
+                            payments.
+                        </p>
+                    </div>
+                    <span className="live">
+                        <i /> Live database
+                    </span>
+                </div>
+                {error && (
+                    <div className="alert err">
+                        <CircleAlert size={17} />
+                        <span>{error}</span>
+                        <button onClick={() => setError("")}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
+                {notice && (
+                    <div className="alert ok">
+                        <Check size={17} />
+                        <span>{notice}</span>
+                        <button onClick={() => setNotice("")}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
+                <section className="stats">
+                    <article>
+                        <span>
+                            <Boxes size={15} /> Total pieces
+                        </span>
+                        <b>{fmt(total)}</b>
+                        <small>Across {inventory.length} colours</small>
+                    </article>
+                    <article>
+                        <span>
+                            <CircleAlert size={15} /> Low stock
+                        </span>
+                        <b>{fmt(low.length)}</b>
+                        <small>At or below {fmt(threshold)} pieces</small>
+                    </article>
+                    <article>
+                        <span>
+                            <ShoppingCart size={15} /> Sales total
+                        </span>
+                        <b>{money(salesTotal)}</b>
+                        <small>{fmt(activeSales.length)} completed sales</small>
+                    </article>
+                </section>
+                <section className="card">
+                    <div className="card-head">
+                        <div className="tabs">
+                            <button
+                                className={tab === "inventory" ? "active" : ""}
+                                onClick={() => setTab("inventory")}
+                            >
+                                <Boxes size={15} /> Inventory
+                            </button>
+                            <button
+                                className={tab === "sales" ? "active" : ""}
+                                onClick={() => {
+                                    setTab("sales");
+                                    setSaleView("list");
+                                }}
+                            >
+                                <ShoppingCart size={15} /> Sales
+                            </button>
+                            <button
+                                className={tab === "history" ? "active" : ""}
+                                onClick={() => setTab("history")}
+                            >
+                                <Clock3 size={15} /> History
+                            </button>
+                        </div>
+                        <button
+                            className="refresh"
+                            onClick={loadData}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                "Loading…"
+                            ) : (
+                                <>
+                                    <RefreshCw size={14} /> Refresh
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    {tab === "inventory" && (
+                        <>
+                            <div className="tools">
+                                <div className="search">
+                                    <Search size={16} />
+                                    <input
+                                        placeholder="Search colour or code…"
+                                        value={query}
+                                        onChange={(e) =>
+                                            setQuery(e.target.value)
+                                        }
+                                    />
+                                </div>
+                                <label className="threshold">
+                                    Low stock at{" "}
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={threshold}
+                                        onChange={(e) =>
+                                            setThreshold(
+                                                Math.max(
+                                                    0,
+                                                    Number(e.target.value),
+                                                ),
+                                            )
+                                        }
+                                    />{" "}
+                                    pcs
+                                </label>
+                            </div>
+                            <div className="table-wrap">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Colour</th>
+                                            <th>Code</th>
+                                            <th>Available</th>
+                                            <th className="right">
+                                                Update stock
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map((x) => {
+                                            const isLow =
+                                                Number(x.quantity) <= threshold;
+                                            return (
+                                                <tr key={x.id}>
+                                                    <td>
+                                                        <div className="colour">
+                                                            {x.colour_name}
+                                                            {isLow && (
+                                                                <span className="pill">
+                                                                    Low
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <code>
+                                                            {x.colour_code}
+                                                        </code>
+                                                    </td>
+                                                    <td>
+                                                        <b
+                                                            className={
+                                                                isLow
+                                                                    ? "low"
+                                                                    : ""
+                                                            }
+                                                        >
+                                                            {fmt(x.quantity)}
+                                                        </b>
+                                                        <small className="pcs">
+                                                            pcs
+                                                        </small>
+                                                    </td>
+                                                    <td>
+                                                        <div className="actions">
+                                                            <button
+                                                                className="in"
+                                                                onClick={() =>
+                                                                    open(
+                                                                        x,
+                                                                        "in",
+                                                                    )
+                                                                }
+                                                            >
+                                                                <ArrowDownToLine
+                                                                    size={15}
+                                                                />{" "}
+                                                                In
+                                                            </button>
+                                                            <button
+                                                                className="out"
+                                                                onClick={() =>
+                                                                    open(
+                                                                        x,
+                                                                        "out",
+                                                                    )
+                                                                }
+                                                            >
+                                                                <ArrowUpFromLine
+                                                                    size={15}
+                                                                />{" "}
+                                                                Out
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {!filtered.length && (
+                                            <tr>
+                                                <td
+                                                    colSpan="4"
+                                                    className="empty"
+                                                >
+                                                    No colours match your
+                                                    search.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="table-foot">
+                                <span>
+                                    Showing {filtered.length} of{" "}
+                                    {inventory.length} colours
+                                </span>
+                                <span>Quantities in pieces</span>
+                            </div>
+                        </>
+                    )}
+                    {tab === "history" && (
+                        <>
+                            <div className="history-intro">
+                                <Activity size={16} /> Latest 100 stock
+                                movements
+                            </div>
+                            <div className="history">
+                                {movements.map((m) => (
+                                    <article key={m.id}>
+                                        <div
+                                            className={
+                                                "move-icon " + m.movement_type
+                                            }
+                                        >
+                                            {m.movement_type === "in"
+                                                ? "+"
+                                                : "−"}
+                                        </div>
+                                        <div className="move-info">
+                                            <b>{m.colour_name}</b>
+                                            <span>
+                                                {m.colour_code}
+                                                {m.reason
+                                                    ? " · " + m.reason
+                                                    : ""}
+                                            </span>
+                                            <small>
+                                                {dateFmt(m.created_at)}
+                                            </small>
+                                        </div>
+                                        <strong
+                                            className={
+                                                m.movement_type === "in"
+                                                    ? "positive"
+                                                    : "negative"
+                                            }
+                                        >
+                                            {m.movement_type === "in"
+                                                ? "+"
+                                                : "−"}
+                                            {fmt(m.quantity)}
+                                        </strong>
+                                    </article>
+                                ))}
+                                {!movements.length && (
+                                    <div className="empty">
+                                        No stock movements recorded yet.
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                    {tab === "sales" && (
+                        <div className="sales-area">
+                            {saleView === "list" ? (
+                                <>
+                                    <div className="sales-summary">
+                                        <article>
+                                            <span>Received</span>
+                                            <b>{money(receivedTotal)}</b>
+                                        </article>
+                                        <article>
+                                            <span>Outstanding</span>
+                                            <b>{money(outstandingTotal)}</b>
+                                        </article>
+                                        <article>
+                                            <span>Pieces sold</span>
+                                            <b>{fmt(piecesSold)}</b>
+                                        </article>
+                                    </div>
+                                    <div className="sales-toolbar">
+                                        <div>
+                                            <h2>Sales history</h2>
+                                            <p className="muted">
+                                                Review transactions and collect
+                                                pending balances.
+                                            </p>
+                                        </div>
+                                        <button
+                                            className="primary"
+                                            onClick={() => {
+                                                setSaleView("new");
+                                                setError("");
+                                                setNotice("");
+                                            }}
+                                        >
+                                            <Plus size={15} /> New sale
+                                        </button>
+                                    </div>
+                                    <div className="sales-filters">
+                                        <div className="search">
+                                            <Search size={15} />
+                                            <input
+                                                placeholder="Search customer or sale #…"
+                                                value={saleSearch}
+                                                onChange={(e) =>
+                                                    setSaleSearch(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                        <select
+                                            value={salesFilter}
+                                            onChange={(e) =>
+                                                setSalesFilter(e.target.value)
+                                            }
+                                        >
+                                            <option value="all">
+                                                All sales
+                                            </option>
+                                            <option value="completed">
+                                                Completed
+                                            </option>
+                                            <option value="unpaid">
+                                                Balance due
+                                            </option>
+                                            <option value="cancelled">
+                                                Cancelled
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div className="sale-list">
+                                        {visibleSales.map((s) => (
+                                            <article
+                                                className="sale-card"
+                                                key={s.id}
+                                            >
+                                                <div className="sale-main">
+                                                    <div>
+                                                        <b>
+                                                            Sale #
+                                                            {s.sale_number}
+                                                        </b>
+                                                        <span>
+                                                            {s.customer_name} ·{" "}
+                                                            {s.customer_phone}
+                                                        </span>
+                                                        <small>
+                                                            {dateFmt(
+                                                                s.created_at,
+                                                            )}{" "}
+                                                            ·{" "}
+                                                            {
+                                                                (
+                                                                    s.sale_items ||
+                                                                    []
+                                                                ).length
+                                                            }{" "}
+                                                            item types
+                                                        </small>
+                                                    </div>
+                                                    <div className="sale-amount">
+                                                        <b>
+                                                            {money(s.subtotal)}
+                                                        </b>
+                                                        <span
+                                                            className={`status ${s.status === "cancelled" ? "cancelled" : s.payment_status}`}
+                                                        >
+                                                            {s.status ===
+                                                                "cancelled"
+                                                                ? "Cancelled"
+                                                                : paymentLabel(
+                                                                    s.payment_status,
+                                                                )}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="sale-bottom">
+                                                    <span>
+                                                        {fmt(
+                                                            (
+                                                                s.sale_items ||
+                                                                []
+                                                            ).reduce(
+                                                                (a, i) =>
+                                                                    a +
+                                                                    Number(
+                                                                        i.quantity,
+                                                                    ),
+                                                                0,
+                                                            ),
+                                                        )}{" "}
+                                                        pcs · Received{" "}
+                                                        {money(
+                                                            s.amount_received,
+                                                        )}{" "}
+                                                        · Due{" "}
+                                                        {money(
+                                                            Math.max(
+                                                                0,
+                                                                Number(
+                                                                    s.subtotal,
+                                                                ) -
+                                                                Number(
+                                                                    s.amount_received,
+                                                                ),
+                                                            ),
+                                                        )}
+                                                    </span>
+                                                    <div className="sale-actions">
+                                                        <button
+                                                            className="text-action"
+                                                            onClick={() =>
+                                                                setExpandedSale(
+                                                                    expandedSale ===
+                                                                        s.id
+                                                                        ? null
+                                                                        : s.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            {expandedSale ===
+                                                                s.id
+                                                                ? "Hide items"
+                                                                : "View items"}{" "}
+                                                            <ChevronDown
+                                                                size={13}
+                                                            />
+                                                        </button>
+                                                        {s.status ===
+                                                            "completed" &&
+                                                            Number(
+                                                                s.amount_received,
+                                                            ) <
+                                                            Number(
+                                                                s.subtotal,
+                                                            ) && (
+                                                                <button
+                                                                    className="text-action pay"
+                                                                    onClick={() => {
+                                                                        setPaymentSale(
+                                                                            s,
+                                                                        );
+                                                                        setPaymentAmount(
+                                                                            "",
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    <Wallet
+                                                                        size={
+                                                                            13
+                                                                        }
+                                                                    />{" "}
+                                                                    Add payment
+                                                                </button>
+                                                            )}
+                                                        {s.status ===
+                                                            "completed" && (
+                                                                <button
+                                                                    className="text-action danger"
+                                                                    onClick={() =>
+                                                                        cancelSale(
+                                                                            s,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        saving
+                                                                    }
+                                                                >
+                                                                    <Ban
+                                                                        size={13}
+                                                                    />{" "}
+                                                                    Cancel
+                                                                </button>
+                                                            )}
+                                                    </div>
+                                                </div>
+                                                {expandedSale === s.id && (
+                                                    <div className="sale-lines">
+                                                        {(
+                                                            s.sale_items || []
+                                                        ).map((i) => (
+                                                            <div key={i.id}>
+                                                                <span>
+                                                                    {
+                                                                        i.colour_name
+                                                                    }{" "}
+                                                                    <small>
+                                                                        {
+                                                                            i.colour_code
+                                                                        }
+                                                                    </small>
+                                                                </span>
+                                                                <span>
+                                                                    {fmt(
+                                                                        i.quantity,
+                                                                    )}{" "}
+                                                                    ×{" "}
+                                                                    {money(
+                                                                        i.rate,
+                                                                    )}{" "}
+                                                                    ={" "}
+                                                                    <b>
+                                                                        {money(
+                                                                            i.line_total,
+                                                                        )}
+                                                                    </b>
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                        {s.status ===
+                                                            "cancelled" && (
+                                                                <p className="muted">
+                                                                    Stock restored
+                                                                    on{" "}
+                                                                    {dateFmt(
+                                                                        s.cancelled_at ||
+                                                                        s.created_at,
+                                                                    )}
+                                                                    . Any money
+                                                                    already received
+                                                                    must be
+                                                                    settled/refunded
+                                                                    separately.
+                                                                </p>
+                                                            )}
+                                                    </div>
+                                                )}
+                                            </article>
+                                        ))}
+                                        {!visibleSales.length && (
+                                            <div className="empty">
+                                                No sales match this filter.
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="sales-toolbar">
+                                        <div>
+                                            <h2>Create new sale</h2>
+                                            <p className="muted">
+                                                Add multiple colours to one
+                                                customer transaction.
+                                            </p>
+                                        </div>
+                                        <button
+                                            className="secondary"
+                                            onClick={resetSale}
+                                        >
+                                            Back to sales
+                                        </button>
+                                    </div>
+                                    <form
+                                        className="sale-form"
+                                        onSubmit={submitSale}
+                                    >
+                                        <section className="form-section">
+                                            <h3>Customer details</h3>
+                                            <div className="form-grid">
+                                                <label>
+                                                    Customer name
+                                                    <input
+                                                        required
+                                                        value={customerName}
+                                                        onChange={(e) =>
+                                                            setCustomerName(
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        placeholder="Enter customer name"
+                                                    />
+                                                </label>
+                                                <label>
+                                                    Mobile number
+                                                    <input
+                                                        required
+                                                        type="tel"
+                                                        inputMode="tel"
+                                                        value={customerPhone}
+                                                        onChange={(e) =>
+                                                            setCustomerPhone(
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        placeholder="10-digit mobile number"
+                                                    />
+                                                </label>
+                                            </div>
+                                        </section>
+                                        <section className="form-section">
+                                            <div className="section-title">
+                                                <h3>Items</h3>
+                                                <span>
+                                                    {selected.length} selected
+                                                </span>
+                                            </div>
+                                            <div className="search item-search">
+                                                <Search size={15} />
+
+                                                <input
+                                                    ref={saleSearchRef}
+                                                    placeholder="Search colour name or code to add…"
+                                                    value={saleSearch}
+                                                    onChange={(e) => setSaleSearch(e.target.value)}
+                                                    onKeyDown={handleSaleSearchKeyDown}
+                                                    autoComplete="off"
+                                                />
+
+                                                <small className="enter-hint">
+                                                    Enter ↵ to add first match
+                                                </small>
+                                            </div>
+                                            {saleSearch.trim() && (
+                                                <div className="item-results">
+                                                    {inventory
+                                                        .filter(
+                                                            (x) =>
+                                                                x.colour_code
+                                                                    .toLowerCase()
+                                                                    .includes(
+                                                                        saleSearch.toLowerCase(),
+                                                                    ) ||
+                                                                x.colour_name
+                                                                    .toLowerCase()
+                                                                    .includes(
+                                                                        saleSearch.toLowerCase(),
+                                                                    ),
+                                                        )
+                                                        .filter(
+                                                            (x) =>
+                                                                !selected.some(
+                                                                    (s) =>
+                                                                        s.inventory_id ===
+                                                                        x.id,
+                                                                ),
+                                                        )
+                                                        .slice(0, 8)
+                                                        .map((x) => (
+                                                            <button
+                                                                type="button"
+                                                                key={x.id}
+                                                                onClick={() =>
+                                                                    addSaleItem(
+                                                                        x,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    Number(
+                                                                        x.quantity,
+                                                                    ) <= 0
+                                                                }
+                                                            >
+                                                                <span>
+                                                                    <b>
+                                                                        {
+                                                                            x.colour_name
+                                                                        }
+                                                                    </b>
+                                                                    <small>
+                                                                        {
+                                                                            x.colour_code
+                                                                        }
+                                                                    </small>
+                                                                </span>
+                                                                <span>
+                                                                    {fmt(
+                                                                        x.quantity,
+                                                                    )}{" "}
+                                                                    pcs
+                                                                    available{" "}
+                                                                    <Plus
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                    />
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    {!inventory.some(
+                                                        (x) =>
+                                                            (x.colour_code
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    saleSearch.toLowerCase(),
+                                                                ) ||
+                                                                x.colour_name
+                                                                    .toLowerCase()
+                                                                    .includes(
+                                                                        saleSearch.toLowerCase(),
+                                                                    )) &&
+                                                            !selected.some(
+                                                                (s) =>
+                                                                    s.inventory_id ===
+                                                                    x.id,
+                                                            ),
+                                                    ) && (
+                                                            <p className="empty">
+                                                                No available
+                                                                matching colours.
+                                                            </p>
+                                                        )}
+                                                </div>
+                                            )}
+                                            {selected.length > 0 && (
+                                                <>
+                                                    <div className="common-rate">
+                                                        <label>
+                                                            Apply common rate to
+                                                            all items (₹ /
+                                                            piece)
+                                                            <input
+                                                                type="number"
+                                                                min="0.01"
+                                                                step="0.01"
+                                                                value={
+                                                                    commonRate
+                                                                }
+                                                                onChange={(e) =>
+                                                                    applyCommonRate(
+                                                                        e.target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                                placeholder="Optional common rate"
+                                                            />
+                                                        </label>
+                                                        <small>
+                                                            Individual rates can
+                                                            still be adjusted
+                                                            below.
+                                                        </small>
+                                                    </div>
+                                                    <div className="sale-item-list">
+                                                        {selected.map((x) => (
+                                                            <div
+                                                                className="sale-item"
+                                                                key={
+                                                                    x.inventory_id
+                                                                }
+                                                            >
+                                                                <div className="item-name">
+                                                                    <b>
+                                                                        {
+                                                                            x.colour_name
+                                                                        }
+                                                                    </b>
+                                                                    <small>
+                                                                        {
+                                                                            x.colour_code
+                                                                        }{" "}
+                                                                        ·{" "}
+                                                                        {fmt(
+                                                                            x.available,
+                                                                        )}{" "}
+                                                                        available
+                                                                    </small>
+                                                                </div>
+                                                                <label>
+                                                                    Qty
+                                                                    <input
+                                                                        type="number"
+                                                                        min="1"
+                                                                        max={
+                                                                            x.available
+                                                                        }
+                                                                        step="1"
+                                                                        value={
+                                                                            x.quantity
+                                                                        }
+                                                                        onChange={(
+                                                                            e,
+                                                                        ) =>
+                                                                            updateLine(
+                                                                                x.inventory_id,
+                                                                                "quantity",
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                </label>
+                                                                <label>
+                                                                    Rate (₹)
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0.01"
+                                                                        step="0.01"
+                                                                        value={
+                                                                            x.rate
+                                                                        }
+                                                                        onChange={(
+                                                                            e,
+                                                                        ) =>
+                                                                            updateLine(
+                                                                                x.inventory_id,
+                                                                                "rate",
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                </label>
+                                                                <b className="line-total">
+                                                                    {money(
+                                                                        Number(
+                                                                            x.quantity,
+                                                                        ) *
+                                                                        Number(
+                                                                            x.rate,
+                                                                        ),
+                                                                    )}
+                                                                </b>
+                                                                <button
+                                                                    type="button"
+                                                                    className="remove-line"
+                                                                    onClick={() =>
+                                                                        setSelected(
+                                                                            (
+                                                                                old,
+                                                                            ) =>
+                                                                                old.filter(
+                                                                                    (
+                                                                                        i,
+                                                                                    ) =>
+                                                                                        i.inventory_id !==
+                                                                                        x.inventory_id,
+                                                                                ),
+                                                                        )
+                                                                    }
+                                                                    aria-label="Remove item"
+                                                                >
+                                                                    <Trash2
+                                                                        size={
+                                                                            15
+                                                                        }
+                                                                    />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                            {!selected.length && (
+                                                <p className="empty add-first">
+                                                    Search and select the
+                                                    colours being purchased.
+                                                </p>
+                                            )}
+                                        </section>
+                                        <section className="form-section">
+                                            <h3>Payment</h3>
+                                            <div className="payment-entry">
+                                                <label>
+                                                    Amount received (₹)
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max={saleItemsTotal}
+                                                        step="0.01"
+                                                        value={amountReceived}
+                                                        onChange={(e) =>
+                                                            setAmountReceived(
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                    />
+                                                </label>
+                                                <small>
+                                                    Enter 0 if the customer has
+                                                    not paid yet.
+                                                </small>
+                                            </div>
+                                            <div className="totals">
+                                                <div>
+                                                    <span>Total pieces</span>
+                                                    <b>{fmt(salePieces)}</b>
+                                                </div>
+                                                <div>
+                                                    <span>Sale total</span>
+                                                    <b>
+                                                        {money(saleItemsTotal)}
+                                                    </b>
+                                                </div>
+                                                <div>
+                                                    <span>Received</span>
+                                                    <b>
+                                                        {money(amountReceived)}
+                                                    </b>
+                                                </div>
+                                                <div className="due">
+                                                    <span>Balance due</span>
+                                                    <b>
+                                                        {money(
+                                                            Math.max(
+                                                                0,
+                                                                saleItemsTotal -
+                                                                Number(
+                                                                    amountReceived ||
+                                                                    0,
+                                                                ),
+                                                            ),
+                                                        )}
+                                                    </b>
+                                                </div>
+                                            </div>
+                                        </section>
+                                        <div className="form-actions">
+                                            <button
+                                                type="button"
+                                                className="secondary"
+                                                onClick={resetSale}
+                                            >
+                                                Discard
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="primary"
+                                                disabled={
+                                                    saving || !selected.length
+                                                }
+                                            >
+                                                {saving
+                                                    ? "Saving sale…"
+                                                    : "Complete sale"}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </section>
+                <footer>
+                    <span>Pipe Stock Manager</span>
+                    <span>Changes save to Supabase</span>
+                </footer>
+            </main>
+            {item && (
+                <div
+                    className="backdrop"
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget) setItem(null);
+                    }}
+                >
+                    <section className="modal" role="dialog" aria-modal="true">
+                        <div className="modal-head">
+                            <div>
+                                <p className="eyebrow">
+                                    {type === "in" ? "STOCK IN" : "STOCK OUT"}
+                                </p>
+                                <h2>{item.colour_name}</h2>
+                                <p className="muted">
+                                    {item.colour_code} · Current stock:{" "}
+                                    {fmt(item.quantity)} pcs
+                                </p>
+                            </div>
+                            <button
+                                className="icon"
+                                onClick={() => setItem(null)}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="switch">
+                            <button
+                                className={type === "in" ? "sel-in" : ""}
+                                onClick={() => setType("in")}
+                            >
+                                <ArrowDownToLine size={15} /> Add stock
+                            </button>
+                            <button
+                                className={type === "out" ? "sel-out" : ""}
+                                onClick={() => setType("out")}
+                            >
+                                <ArrowUpFromLine size={15} /> Remove stock
+                            </button>
+                        </div>
+                        <form onSubmit={save}>
+                            <label>
+                                Quantity (pieces)
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    required
+                                    value={qty}
+                                    onChange={(e) => setQty(e.target.value)}
+                                />
+                            </label>
+                            <label>
+                                Note{" "}
+                                <span className="optional">(optional)</span>
+                                <input
+                                    value={reason}
+                                    onChange={(e) => setReason(e.target.value)}
+                                    maxLength="120"
+                                    placeholder={
+                                        type === "in"
+                                            ? "e.g. Supplier delivery"
+                                            : "e.g. Order / sample usage"
+                                    }
+                                />
+                            </label>
+                            <div className="modal-actions">
+                                <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() => setItem(null)}
+                                >
+                                    Cancel
+                                </button>
+                                <button className="primary" disabled={saving}>
+                                    {saving ? "Saving…" : "Save movement"}
+                                </button>
+                            </div>
                         </form>
-                    </>}
-                </div>}
-            </section><footer><span>Pipe Stock Manager</span><span>Changes save to Supabase</span></footer></main>
-        {item && <div className="backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setItem(null) }}><section className="modal" role="dialog" aria-modal="true"><div className="modal-head"><div><p className="eyebrow">{type === 'in' ? 'STOCK IN' : 'STOCK OUT'}</p><h2>{item.colour_name}</h2><p className="muted">{item.colour_code} · Current stock: {fmt(item.quantity)} pcs</p></div><button className="icon" onClick={() => setItem(null)}><X size={18} /></button></div><div className="switch"><button className={type === 'in' ? 'sel-in' : ''} onClick={() => setType('in')}><ArrowDownToLine size={15} /> Add stock</button><button className={type === 'out' ? 'sel-out' : ''} onClick={() => setType('out')}><ArrowUpFromLine size={15} /> Remove stock</button></div><form onSubmit={save}><label>Quantity (pieces)<input type="number" min="1" step="1" required value={qty} onChange={e => setQty(e.target.value)} /></label><label>Note <span className="optional">(optional)</span><input value={reason} onChange={e => setReason(e.target.value)} maxLength="120" placeholder={type === 'in' ? 'e.g. Supplier delivery' : 'e.g. Order / sample usage'} /></label><div className="modal-actions"><button type="button" className="secondary" onClick={() => setItem(null)}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save movement'}</button></div></form></section></div>}
-        {paymentSale && <div className="backdrop"><section className="modal" role="dialog" aria-modal="true"><div className="modal-head"><div><p className="eyebrow">RECORD PAYMENT</p><h2>Sale #{paymentSale.sale_number}</h2><p className="muted">Outstanding: {money(paymentSale.subtotal - paymentSale.amount_received)}</p></div><button className="icon" onClick={() => setPaymentSale(null)}><X size={18} /></button></div><form className="payment-modal" onSubmit={addPayment}><label>Payment received (₹)<input autoFocus type="number" min="0.01" max={paymentSale.subtotal - paymentSale.amount_received} step="0.01" required value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} /></label><div className="modal-actions"><button type="button" className="secondary" onClick={() => setPaymentSale(null)}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Record payment'}</button></div></form></section></div>}
-    </div>
+                    </section>
+                </div>
+            )}
+            {paymentSale && (
+                <div className="backdrop">
+                    <section className="modal" role="dialog" aria-modal="true">
+                        <div className="modal-head">
+                            <div>
+                                <p className="eyebrow">RECORD PAYMENT</p>
+                                <h2>Sale #{paymentSale.sale_number}</h2>
+                                <p className="muted">
+                                    Outstanding:{" "}
+                                    {money(
+                                        paymentSale.subtotal -
+                                        paymentSale.amount_received,
+                                    )}
+                                </p>
+                            </div>
+                            <button
+                                className="icon"
+                                onClick={() => setPaymentSale(null)}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <form className="payment-modal" onSubmit={addPayment}>
+                            <label>
+                                Payment received (₹)
+                                <input
+                                    autoFocus
+                                    type="number"
+                                    min="0.01"
+                                    max={
+                                        paymentSale.subtotal -
+                                        paymentSale.amount_received
+                                    }
+                                    step="0.01"
+                                    required
+                                    value={paymentAmount}
+                                    onChange={(e) =>
+                                        setPaymentAmount(e.target.value)
+                                    }
+                                />
+                            </label>
+                            <div className="modal-actions">
+                                <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() => setPaymentSale(null)}
+                                >
+                                    Cancel
+                                </button>
+                                <button className="primary" disabled={saving}>
+                                    {saving ? "Saving…" : "Record payment"}
+                                </button>
+                            </div>
+                        </form>
+                    </section>
+                </div>
+            )}
+        </div>
+    );
 }
